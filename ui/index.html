@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supplier Recommendation Engine | SAP BTP AI</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0f1e;
+    --surface:   #111827;
+    --border:    #1e2d45;
+    --accent:    #0070f3;
+    --accent2:   #00c6a7;
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --gold:      #f59e0b;
+    --danger:    #ef4444;
+    --success:   #22c55e;
+    --rank1:     #f59e0b;
+    --rank2:     #94a3b8;
+    --rank3:     #b45309;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,112,243,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,112,243,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-area { display: flex; flex-direction: column; gap: 6px; }
+
+  .sap-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,112,243,0.12);
+    border: 1px solid rgba(0,112,243,0.3);
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    width: fit-content;
+  }
+
+  .sap-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  h1 span { color: var(--accent2); }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .version-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 4px;
+    text-align: right;
+    line-height: 1.6;
+  }
+
+  /* Form panel */
+  .form-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px;
+    margin-bottom: 32px;
+  }
+
+  .form-title {
+    font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 16px;
+    align-items: end;
+  }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .field select,
+  .field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+
+  .field select:focus,
+  .field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,112,243,0.1);
+  }
+
+  .btn-run {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 28px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    height: 42px;
+  }
+
+  .btn-run:hover { background: #0059c1; transform: translateY(-1px); }
+  .btn-run:active { transform: translateY(0); }
+  .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(0,198,167,0.06);
+    border: 1px solid rgba(0,198,167,0.2);
+    border-radius: 6px;
+    margin-bottom: 28px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--accent2);
+  }
+
+  .status-bar.error {
+    background: rgba(239,68,68,0.06);
+    border-color: rgba(239,68,68,0.2);
+    color: var(--danger);
+  }
+
+  .status-bar.hidden { display: none; }
+
+  /* Summary stats */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .stat-value.accent { color: var(--accent2); }
+
+  /* Results */
+  .results-title {
+    font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .vendor-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 16px;
+    transition: border-color 0.2s, transform 0.2s;
+    animation: fadeIn 0.4s ease forwards;
+    opacity: 0;
+  }
+
+  .vendor-card:hover {
+    border-color: rgba(0,112,243,0.4);
+    transform: translateY(-2px);
+  }
+
+  .vendor-card.rank-1 { border-left: 3px solid var(--rank1); }
+  .vendor-card.rank-2 { border-left: 3px solid var(--rank2); }
+  .vendor-card.rank-3 { border-left: 3px solid var(--rank3); }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .vendor-card:nth-child(1) { animation-delay: 0.05s; }
+  .vendor-card:nth-child(2) { animation-delay: 0.12s; }
+  .vendor-card:nth-child(3) { animation-delay: 0.19s; }
+  .vendor-card:nth-child(4) { animation-delay: 0.26s; }
+  .vendor-card:nth-child(5) { animation-delay: 0.33s; }
+
+  .vendor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .vendor-left { display: flex; align-items: center; gap: 14px; }
+
+  .rank-badge {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .rank-1 .rank-badge { background: rgba(245,158,11,0.15); color: var(--rank1); border: 1px solid rgba(245,158,11,0.3); }
+  .rank-2 .rank-badge { background: rgba(148,163,184,0.1); color: var(--rank2); border: 1px solid rgba(148,163,184,0.2); }
+  .rank-3 .rank-badge { background: rgba(180,83,9,0.15);   color: var(--rank3); border: 1px solid rgba(180,83,9,0.3); }
+  .rank-4 .rank-badge, .rank-5 .rank-badge { background: rgba(30,45,69,0.5); color: var(--muted); border: 1px solid var(--border); }
+
+  .vendor-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 3px;
+  }
+
+  .vendor-meta {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .score-block { text-align: right; }
+
+  .ai-score {
+    font-size: 32px;
+    font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--accent2);
+    line-height: 1;
+  }
+
+  .score-label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* Score bar */
+  .score-bar-wrap {
+    margin-bottom: 16px;
+  }
+
+  .score-bar-bg {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .score-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Metrics grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .metric {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+
+  .metric-label {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+
+  .metric-value {
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .metric-value.good  { color: var(--success); }
+  .metric-value.warn  { color: var(--gold); }
+  .metric-value.bad   { color: var(--danger); }
+  .metric-value.plain { color: var(--text); }
+
+  /* Reason */
+  .reason-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(0,198,167,0.04);
+    border: 1px solid rgba(0,198,167,0.12);
+    border-radius: 6px;
+    font-size: 12px;
+    color: #a0b4c8;
+    line-height: 1.5;
+  }
+
+  .reason-icon {
+    color: var(--accent2);
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ISO badge */
+  .iso-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    background: rgba(0,112,243,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(0,112,243,0.25);
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+  }
+
+  .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+
+  /* Footer */
+  .footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  @media (max-width: 768px) {
+    .form-grid { grid-template-columns: 1fr 1fr; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .header { flex-direction: column; gap: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-area">
+      <div class="sap-badge">SAP BTP AI CORE &nbsp;|&nbsp; LIVE ENDPOINT</div>
+      <h1>Supplier <span>Recommendation</span> Engine</h1>
+      <div class="subtitle">ML-powered vendor scoring on SAP procurement data</div>
+    </div>
+    <div class="version-tag">
+      Model: RandomForest v1.0<br>
+      Features: 11 KPIs<br>
+      Vendors indexed: 20
+    </div>
+  </div>
+
+  <!-- Form -->
+  <div class="form-panel">
+    <div class="form-title">// Query Parameters</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Material Group</label>
+        <select id="matGroup">
+          <option value="">All Groups</option>
+          <option value="MRO">MRO — Maintenance, Repair &amp; Operations</option>
+          <option value="ELEC">ELEC — Electrical &amp; Instrumentation</option>
+          <option value="MECH">MECH — Mechanical Components</option>
+          <option value="RAW">RAW — Raw Materials</option>
+          <option value="CHEM">CHEM — Chemicals</option>
+          <option value="ENG">ENG — Engineering Equipment</option>
+          <option value="IT">IT — IT Infrastructure</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Top N Results</label>
+        <select id="topN">
+          <option value="3">Top 3</option>
+          <option value="5" selected>Top 5</option>
+          <option value="10">Top 10</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Min. Delivery Reliability %</label>
+        <input type="number" id="minDelivery" value="0" min="0" max="100" step="1" placeholder="0">
+      </div>
+      <button class="btn-run" id="runBtn" onclick="runRecommendation()">
+        &#9658; Run AI Model
+      </button>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-bar hidden" id="statusBar"></div>
+
+  <!-- Stats -->
+  <div class="stats-row" id="statsRow" style="display:none">
+    <div class="stat-card">
+      <div class="stat-label">Vendors Evaluated</div>
+      <div class="stat-value" id="statTotal">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Recommendations</div>
+      <div class="stat-value accent" id="statReturned">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Top Score</div>
+      <div class="stat-value" id="statTopScore">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Material Group</div>
+      <div class="stat-value" id="statGroup" style="font-size:18px">--</div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="resultsArea">
+    <div class="empty-state">
+      <div class="empty-icon">&#9680;</div>
+      Select parameters and click <strong>Run AI Model</strong> to get recommendations
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>ProcureArc &nbsp;|&nbsp; @SAPProcurementAI</span>
+    <span>SAP BTP AI Core &nbsp;|&nbsp; Free Tier Deployment</span>
+  </div>
+
+</div>
+
+<script>
+const API_BASE = "http://localhost:5000";
+
+async function runRecommendation() {
+  const btn        = document.getElementById("runBtn");
+  const statusBar  = document.getElementById("statusBar");
+  const matGroup   = document.getElementById("matGroup").value;
+  const topN       = parseInt(document.getElementById("topN").value);
+  const minDel     = parseFloat(document.getElementById("minDelivery").value) || 0;
+
+  btn.disabled = true;
+  btn.textContent = "Running...";
+  showStatus("Calling SAP AI Core endpoint...", false);
+
+  const payload = { top_n: topN };
+  if (matGroup)  payload.material_group = matGroup;
+  if (minDel > 0) payload.min_delivery_reliability = minDel;
+
+  try {
+    const res  = await fetch(`${API_BASE}/v1/recommend`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (data.status === "success") {
+      showStatus(`Model returned ${data.recommendations.length} recommendations from ${data.total_vendors_evaluated} vendors evaluated`, false);
+      renderStats(data);
+      renderResults(data.recommendations);
+    } else {
+      showStatus(data.message || "No results found for the selected parameters", true);
+      document.getElementById("statsRow").style.display = "none";
+      document.getElementById("resultsArea").innerHTML = `<div class="empty-state"><div class="empty-icon">&#9888;</div>${data.message || "No vendors found"}</div>`;
+    }
+  } catch(e) {
+    showStatus("Cannot reach API endpoint. Ensure the Flask server is running on port 8080.", true);
+  }
+
+  btn.disabled = false;
+  btn.textContent = "▶ Run AI Model";
+}
+
+function showStatus(msg, isError) {
+  const bar = document.getElementById("statusBar");
+  bar.textContent = (isError ? "✗ " : "✓ ") + msg;
+  bar.className = "status-bar" + (isError ? " error" : "");
+}
+
+function renderStats(data) {
+  const row = document.getElementById("statsRow");
+  row.style.display = "grid";
+  document.getElementById("statTotal").textContent   = data.total_vendors_evaluated;
+  document.getElementById("statReturned").textContent = data.recommendations.length;
+  document.getElementById("statTopScore").textContent = data.recommendations[0]?.ai_score?.toFixed(1) || "--";
+  document.getElementById("statGroup").textContent    = data.material_group;
+}
+
+function renderResults(recs) {
+  const area = document.getElementById("resultsArea");
+  if (!recs || recs.length === 0) {
+    area.innerHTML = `<div class="empty-state"><div class="empty-icon">&#9680;</div>No vendors match the criteria</div>`;
+    return;
+  }
+
+  area.innerHTML = `<div class="results-title">// AI Recommendations — Ranked by Composite Score</div>` +
+    recs.map(r => buildCard(r)).join("");
+}
+
+function buildCard(r) {
+  const m = r.key_metrics;
+  const scoreWidth = Math.min(100, r.ai_score).toFixed(1);
+
+  const delivClass = m.delivery_reliability_pct >= 95 ? "good" : m.delivery_reliability_pct >= 90 ? "warn" : "bad";
+  const qualClass  = m.quality_rejection_pct <= 1.5 ? "good" : m.quality_rejection_pct <= 3 ? "warn" : "bad";
+  const priceClass = m.price_variance_pct <= 2.5 ? "good" : m.price_variance_pct <= 4 ? "warn" : "bad";
+  const isoTag     = m.iso_certified ? `<span class="iso-tag">ISO</span>` : "";
+
+  return `
+<div class="vendor-card rank-${r.rank}">
+  <div class="vendor-header">
+    <div class="vendor-left">
+      <div class="rank-badge">#${r.rank}</div>
+      <div>
+        <div class="vendor-name">${r.vendor_name}${isoTag}</div>
+        <div class="vendor-meta">ID: ${r.vendor_id} &nbsp;|&nbsp; ${r.location} &nbsp;|&nbsp; ${r.material_group}</div>
+      </div>
+    </div>
+    <div class="score-block">
+      <div class="ai-score">${r.ai_score.toFixed(1)}</div>
+      <div class="score-label">AI Score / 100</div>
+    </div>
+  </div>
+
+  <div class="score-bar-wrap">
+    <div class="score-bar-bg">
+      <div class="score-bar-fill" style="width:${scoreWidth}%"></div>
+    </div>
+  </div>
+
+  <div class="metrics-grid">
+    <div class="metric">
+      <div class="metric-label">Delivery Reliability</div>
+      <div class="metric-value ${delivClass}">${m.delivery_reliability_pct}%</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Quality Rejection</div>
+      <div class="metric-value ${qualClass}">${m.quality_rejection_pct}%</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Price Variance</div>
+      <div class="metric-value ${priceClass}">${m.price_variance_pct}%</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Audit Score</div>
+      <div class="metric-value plain">${m.last_audit_score}/100</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">On-Time Delivery</div>
+      <div class="metric-value ${m.on_time_delivery_pct >= 94 ? 'good' : 'warn'}">${m.on_time_delivery_pct}%</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Lead Time</div>
+      <div class="metric-value plain">${m.avg_lead_time_days} days</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">ISO Certified</div>
+      <div class="metric-value ${m.iso_certified ? 'good' : 'warn'}">${m.iso_certified ? 'Yes' : 'No'}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">On-Time Delivery</div>
+      <div class="metric-value ${m.on_time_delivery_pct >= 95 ? 'good' : 'warn'}">${m.on_time_delivery_pct}%</div>
+    </div>
+  </div>
+
+  <div class="reason-row">
+    <span class="reason-icon">&#9654;</span>
+    <span>${r.recommendation_reason}</span>
+  </div>
+</div>`;
+}
+
+// Auto-run on load to show demo data
+window.onload = () => {
+  document.getElementById("matGroup").value = "ELEC";
+  runRecommendation();
+};
+</script>
+</body>
+</html>

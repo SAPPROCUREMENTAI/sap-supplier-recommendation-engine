@@ -1,0 +1,19 @@
+# Model binaries
+model/*.pkl
+
+# Duplicate root-level files only
+/app.py
+/index.html
+/train_model.py
+/vendor_scorecard.csv
+
+# Old datasets
+Supplier_Recommendation_PoC_Dataset_Old.xlsx
+
+# Demo video and thumbnail
+Demo.mp4
+Thumbnail.png
+
+# Python cache
+__pycache__/
+*.pyc
